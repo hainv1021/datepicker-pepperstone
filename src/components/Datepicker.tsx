@@ -27,7 +27,7 @@ import {
     nextMonthBy,
     previousMonthBy
 } from "../libs/date";
-import { Period, DatepickerType, ColorKeys, DateType } from "../types";
+import { Period, DatepickerType, ColorKeys, DateType, DateValueType } from "../types";
 
 import Arrow from "./icons/Arrow";
 import VerticalDash from "./VerticalDash";
@@ -74,7 +74,8 @@ const Datepicker = (props: DatepickerType) => {
         toggleIcon = undefined,
 
         useRange = true,
-        value = null
+        value = null,
+        maxRangeDays = 30
     } = props;
 
     // Refs
@@ -95,6 +96,9 @@ const Datepicker = (props: DatepickerType) => {
     const [inputText, setInputText] = useState<string>("");
     const [input, setInput] = useState<HTMLInputElement | null>(null);
 
+    const [maxDateState, setMaxDateState] = useState<Date | null>(null);
+    const [minDateState, setMinDateState] = useState<Date | null>(null);
+
     // Custom Hooks use
     useOnClickOutside(containerRef.current, () => {
         const container = containerRef.current;
@@ -102,7 +106,6 @@ const Datepicker = (props: DatepickerType) => {
             hideDatepicker();
         }
     });
-
     // Functions
     const hideDatepicker = useCallback(() => {
         const div = calendarContainerRef.current;
@@ -159,6 +162,7 @@ const Datepicker = (props: DatepickerType) => {
         },
         [firstDate, firstGotoDate]
     );
+
     /* End First */
 
     /* Start Second */
@@ -317,10 +321,42 @@ const Datepicker = (props: DatepickerType) => {
             arrowContainer: arrowRef,
             asSingle,
             calendarContainer: calendarContainerRef,
-            changeDatepickerValue: onChange,
+            changeDatepickerValue: (
+                value: DateValueType,
+                e?: HTMLInputElement | null | undefined
+            ) => {
+                setMinDateState(null);
+                setMaxDateState(null);
+                onChange(value, e);
+            },
             changeDayHover: (newDay: DateType) => setDayHover(newDay),
             changeInputText: (newText: string) => setInputText(newText),
-            changePeriod: (newPeriod: Period) => setPeriod(newPeriod),
+            changePeriod: (newPeriod: Period) => {
+                const { start, end } = newPeriod;
+                setPeriod(newPeriod);
+                if ((!minDate && !maxDate) || !maxRangeDays) {
+                    if (!!start && !end) {
+                        const MAX_DATE = new Date(newPeriod.start || "");
+                        MAX_DATE.setDate(MAX_DATE.getDate() + maxRangeDays);
+
+                        const MIN_DATE = new Date(newPeriod.start || "");
+                        MIN_DATE.setDate(MIN_DATE.getDate());
+
+                        setMaxDateState(new Date(MAX_DATE));
+                        setMinDateState(new Date(MIN_DATE));
+                    }
+                    if (!!end && !start) {
+                        const MAX_DATE = new Date(newPeriod.end || "");
+                        MAX_DATE.setDate(MAX_DATE.getDate());
+
+                        const MIN_DATE = new Date(newPeriod.end || "");
+                        MIN_DATE.setDate(MIN_DATE.getDate() - maxRangeDays);
+
+                        setMaxDateState(new Date(MAX_DATE));
+                        setMinDateState(new Date(MIN_DATE));
+                    }
+                }
+            },
             classNames,
             configs,
             containerClassName,
@@ -337,9 +373,13 @@ const Datepicker = (props: DatepickerType) => {
             inputId,
             inputName,
             inputText,
-            maxDate,
-            minDate,
-            onChange,
+            maxDate: maxDateState,
+            minDate: minDateState,
+            onChange: (value: DateValueType, e: HTMLInputElement) => {
+                setMinDateState(null);
+                setMaxDateState(null);
+                onChange(value, e);
+            },
             period,
             placeholder,
             popoverDirection,
@@ -386,7 +426,10 @@ const Datepicker = (props: DatepickerType) => {
         toggleClassName,
         toggleIcon,
         value,
-        firstGotoDate
+        firstGotoDate,
+        maxDateState,
+        minDateState,
+        maxRangeDays
     ]);
 
     const containerClassNameOverload = useMemo(() => {
@@ -431,8 +474,9 @@ const Datepicker = (props: DatepickerType) => {
                                     onClickNext={nextMonthFirst}
                                     changeMonth={changeFirstMonth}
                                     changeYear={changeFirstYear}
-                                    minDate={minDate}
-                                    maxDate={maxDate}
+                                    minDate={minDateState}
+                                    maxDate={maxDateState}
+                                    // changeFirst={changeFirst}
                                 />
 
                                 {useRange && (
@@ -447,8 +491,8 @@ const Datepicker = (props: DatepickerType) => {
                                             onClickNext={nextMonthSecond}
                                             changeMonth={changeSecondMonth}
                                             changeYear={changeSecondYear}
-                                            minDate={minDate}
-                                            maxDate={maxDate}
+                                            minDate={minDateState}
+                                            maxDate={maxDateState}
                                         />
                                     </>
                                 )}
